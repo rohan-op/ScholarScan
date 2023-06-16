@@ -16,6 +16,7 @@ def get_pdf_text(pdf_docs):
         pdf_reader = PdfReader(pdf)
         for pages in pdf_reader.pages:
             text += pages.extract_text()
+    st.write(text)
     return text
 
 def get_text_chunks(raw_text):

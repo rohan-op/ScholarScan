@@ -1,81 +1,64 @@
 import streamlit as st
 from dotenv import load_dotenv
-from PyPDF2 import PdfReader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.embeddings import HuggingFaceInstructEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.chat_models import ChatOpenAI
-from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationalRetrievalChain
 from htmlTemplates import css, bot_template, user_template
-from langchain import HuggingFaceHub
-
-def get_pdf_text(pdf_docs):
-    text = ''
-    for pdf in pdf_docs:
-        pdf_reader = PdfReader(pdf)
-        for pages in pdf_reader.pages:
-            text += pages.extract_text()
-    st.write(text)
-    return text
-
-def get_text_chunks(raw_text):
-    text_splitter = CharacterTextSplitter(
-        separator = '\n',
-        chunk_size = 1000,
-        chunk_overlap = 200,
-        length_function = len
-    )
-    chunks = text_splitter.split_text(raw_text)
-    return chunks
-
-def get_vectorstore(text_chunks):
-    embeddings = HuggingFaceInstructEmbeddings(model_name="hku-nlp/instructor-xl")
-    vectorstore = FAISS.from_texts(texts=text_chunks,embedding=embeddings)
-    return vectorstore
-
-def get_conversation_chain(vectorstore):
-    # llm = ChatOpenAI()
-    llm = HuggingFaceHub(repo_id="google/flan-t5-xxl", model_kwargs={"temperature": 0.5, "max_ length":512})
-    memory = ConversationBufferMemory(memory_key='chat_history',return_messages=True)
-    conversation_chain = ConversationalRetrievalChain.from_llm(llm=llm, retriever=vectorstore.as_retriever(), memory=memory)
-    return conversation_chain
+from langchain.prompts import PromptTemplate
+from langchain.schema import (SystemMessage, HumanMessage)
+from base import Base
 
 def main():
+    #load api keys
     load_dotenv()
+    base = Base()
+
+    # streamlit initialize page
     st.set_page_config(page_title="Review Generator", page_icon=":books:")
     st.write(css, unsafe_allow_html=True)
-
-    if "conversation" not in st.session_state:
-        st.session_state.conversation = None
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = None
-
     st.header("Review Generator :books:")
-    user_question = st.text_input("Ask question about documents")
-    if user_question:
-        handle_userinput(user_question)
 
-    # st.write(user_template.replace("{{MSG}}","Hi Bot"),unsafe_allow_html=True)
-    # st.write(bot_template.replace("{{MSG}}","Hi Human"),unsafe_allow_html=True)
+    # uninitialized session variables 
+    if "summary" not in st.session_state:
+        st.session_state.summary = None
 
+    # streamlit navbar
     with st.sidebar:
         st.subheader("Your documents")
         pdf_docs = st.file_uploader("Upload your PDFS here and click on process", accept_multiple_files=True)
         if st.button("Process"):
             with st.spinner("Processing"):
-                # get pdf text
-                raw_text = get_pdf_text(pdf_docs)
-                
-                # get text chunks
-                split = get_text_chunks(raw_text)
-                
-                # create vector store
-                vectorstore = get_vectorstore(split)
+                # Get summaries of all the research papers
+                st.session_state.summary = base.get_summary_text(pdf_docs)
 
-                # conversational chain
-                st.session_state.conversation = get_conversation_chain(vectorstore)
+    prompt = PromptTemplate(
+        input_variables= ["sections", "numwords"],
+        template = "Write the {sections} for this academic review paper. The {sections} should be {numwords} atleast words long"
+    )
+    sections_list = ["Title","Introduction","Literature Review", "Comparison", "Conclusion", "References", "Abstract"]
+    numwords_list = ["4","2000","2000","2000","1000","200","400"]
 
+    
+    # sections_list = ["Title","Introduction","Literature Review"]
+    # numwords_list = ["4","2000","2000"]
+    
+    # Initialise the chatbot with history
+    chat, history = base.get_chat_history()
+
+    # Setup Intructions for the chatbot
+    messages = [
+        SystemMessage(content='''
+        You are given summaries of multiple research papers below. Your job is to write different sections of an academic review paper. For example the Introduction, Abstract, Literature Review, Comparision, Conclusion, Acknowledgements, References etc. The user will provide the section that is to be wrriten and how long it should be. All the sections should be unique and should not be same as other sections of the paper. If you are using direct/same sentences from the summary of any research paper, mention the reference in the text. All the sections should be written in an academic manner. 
+
+        NOTE: When writing an Introduction, do not mention what the summaries of the research paper or their content. Rather focus on the context and topic of the academic paper and what we plan to achieve from this review.
+
+        SUMMARIES OF ALL THE RESEARCH PAPERS: 
+        '''+str(st.session_state.summary))
+    ]
+    st.write(bot_template.replace("{{MSG}}",str(st.session_state.summary)),unsafe_allow_html=True)
+
+    # Generate Sections of Academic Review Paper:
+    for section, numword in zip(sections_list, numwords_list):
+        messages.append(HumanMessage(content=prompt.format(sections=section,numwords=numword)))
+        response = chat(messages)
+        st.write(bot_template.replace("{{MSG}}",response.content),unsafe_allow_html=True)
 
 if __name__ == '__main__':
     main()

@@ -1,22 +1,32 @@
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
-import os
 from langchain import HuggingFaceHub
-from langchain.chains.summarize import load_summarize_chain
-from langchain.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.llms import OpenAI
-from langchain.prompts import PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ChatMessageHistory
 
 class Base:
+    instruction = '''
+        You are given summaries of multiple research papers below. Your job is to write different sections of an academic review paper. For example the Introduction, Abstract, Literature Review, Comparision, Conclusion, Acknowledgements, References etc. The user will provide the section that is to be wrriten and how long it should be. All the sections should be unique and should not be same as other sections of the paper. If you are using direct/same sentences from the summary of any research paper, mention the reference in the text. All the sections should be written in an academic manner. 
+
+        NOTE: When writing an Introduction, do not mention what the summaries of the research paper or their content. Rather focus on the context and topic of the academic paper and what we plan to achieve from this review.
+
+        SUMMARIES OF ALL THE RESEARCH PAPERS: 
+        '''
+
     def __init__(self):
         load_dotenv()
 
+
+    def get_HFmodel(self, repo_id="facebook/bart-large-cnn", model_kwargs={"temperature": 0.9, "max_length":1000, "min_length":300}):
+        return HuggingFaceHub(repo_id=repo_id, model_kwargs=model_kwargs)
+
+
+    def get_ChatOpenAImodel(self,temperature = 1, model='gpt-3.5-turbo-16k'):
+        return ChatOpenAI(temperature=temperature, model=model)
+
+
     def get_summary_text(self,pdf_docs):
-        generate_summary_llm = HuggingFaceHub(repo_id="facebook/bart-large-cnn", model_kwargs={"temperature": 0.9, "max_length":1000, "min_length":300})
+        generate_summary_llm = self.get_HFmodel()
 
         summary = ''
         for i,pdf in enumerate(pdf_docs):
@@ -29,44 +39,7 @@ class Base:
         return summary
 
 
-    def get_text_chunks(self,raw_text):
-        text_splitter = CharacterTextSplitter(
-            separator = '\n',
-            chunk_size = 700,
-            chunk_overlap = 50,
-            length_function = len
-        )
-        chunks = text_splitter.split_text(raw_text)
-        return chunks
-
-
-    def get_summary(self, pdf_docs):
-        llm = OpenAI(temperature=1)
-        summary = ''
-        prompt_template = """Write a 400 word long summary of the following research paper, also mention the title and author of the research paper: {text}"""
-        PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
-        for i,doc in enumerate(pdf_docs):
-            # Get the file name and extension
-            file_name = doc.name
-            file_extension = os.path.splitext(file_name)[1].lower()
-
-            # Process only text files (e.g., .txt)
-            if file_extension == ".txt":
-                # Load the text file using TextLoader
-                loader = TextLoader(file_name)
-                documents = loader.load()
-
-                # Split the documents using RecursiveCharacterTextSplitter
-                text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-                texts = text_splitter.split_documents(documents)
-                #chain = load_summarize_chain(llm, chain_type="map_reduce", verbose=True)
-                chain = load_summarize_chain(llm, chain_type="stuff", prompt=PROMPT)
-                summary += "\n\nRESEARCH PAPER "+ str(i) +":\n\n"
-                summary += chain.run(texts)
-        return summary
-
-
     def get_chat_history(self):
-        chat = ChatOpenAI(temperature=1)
+        chat = self.get_ChatOpenAImodel()
         history = ChatMessageHistory()
         return chat, history

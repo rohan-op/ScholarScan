@@ -28,14 +28,13 @@ class Base:
     def get_summary_text(self,pdf_docs):
         generate_summary_llm = self.get_HFmodel()
 
-        summary = ''
+        summary = []
         for i,pdf in enumerate(pdf_docs):
             text = ''
             pdf_reader = PdfReader(pdf)
             for pages in pdf_reader.pages:
                 text += pages.extract_text()
-            summary += "\nResearch Paper " + str(i) + ':\n\n'
-            summary += generate_summary_llm(text) + '\n\n'
+            summary.append("\nResearch Paper " + str(i) + ':\n\n' + generate_summary_llm(text) + '\n\n')
         return summary
 
 

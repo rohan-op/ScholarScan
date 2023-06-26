@@ -3,13 +3,15 @@ from dotenv import load_dotenv
 from htmlTemplates import css, bot_template, user_template
 from langchain.prompts import PromptTemplate
 from langchain.schema import (SystemMessage, HumanMessage)
-#from base import Base
-from Summary.OpenAISum import OpenAISummary as Base
+from base import Base
+from Metric.word2vec import Word2Vec
+#from Summary.OpenAISum import OpenAISummary as Base
 
 def main():
     #load api keys
     load_dotenv()
     base = Base()
+    word2vec = Word2Vec()
 
     # streamlit initialize page
     st.set_page_config(page_title="Review Generator", page_icon=":books:")
@@ -41,19 +43,23 @@ def main():
     
     # Initialize the chatbot with history 
     chat = base.get_ChatOpenAImodel()
-
+    delimiter = " "
     # Setup Intructions for the chatbot
     if st.session_state.summary:
         messages = [
-            SystemMessage(content=base.instruction+str(st.session_state.summary))
+            SystemMessage(content=base.instruction+delimiter.join(st.session_state.summary))
         ]
-        st.write(bot_template.replace("{{MSG}}",str(st.session_state.summary)),unsafe_allow_html=True)
+        st.write(bot_template.replace("{{MSG}}",delimiter.join(st.session_state.summary)),unsafe_allow_html=True)
+
+        scores = word2vec.get_similarity_scores(pdf_docs,st.session_state.summary)
+        for score in scores:
+            st.write(bot_template.replace("{{MSG}}",str(score)),unsafe_allow_html=True)
 
         # Generate Sections of Academic Review Paper:
-        for section, numword in zip(sections_list, numwords_list):
-            messages.append(HumanMessage(content=prompt.format(sections=section,numwords=numword)))
-            response = chat(messages)
-            st.write(bot_template.replace("{{MSG}}",response.content),unsafe_allow_html=True)
+        # for section, numword in zip(sections_list, numwords_list):
+        #     messages.append(HumanMessage(content=prompt.format(sections=section,numwords=numword)))
+        #     response = chat(messages)
+        #     st.write(bot_template.replace("{{MSG}}",response.content),unsafe_allow_html=True)
 
 if __name__ == '__main__':
     main()

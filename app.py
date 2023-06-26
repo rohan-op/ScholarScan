@@ -2,10 +2,10 @@ import streamlit as st
 from dotenv import load_dotenv
 from htmlTemplates import css, bot_template, user_template
 from langchain.prompts import PromptTemplate
-from langchain.schema import (SystemMessage, HumanMessage)
-from base import Base
+from langchain.schema import (SystemMessage, HumanMessage, AIMessage)
+#from base import Base
 from Metric.word2vec import Word2Vec
-#from Summary.OpenAISum import OpenAISummary as Base
+from Summary.OpenAISum import OAISumChain as Base
 
 def main():
     #load api keys
@@ -29,7 +29,7 @@ def main():
         if st.button("Process"):
             with st.spinner("Processing"):
                 # Get summaries of all the research papers
-                st.session_state.summary = base.get_summary_text(pdf_docs)
+                st.session_state.summary = base.get_summaries(pdf_docs)
 
     prompt = PromptTemplate(
         input_variables= ["sections", "numwords"],
@@ -56,10 +56,11 @@ def main():
             st.write(bot_template.replace("{{MSG}}",str(score)),unsafe_allow_html=True)
 
         # Generate Sections of Academic Review Paper:
-        # for section, numword in zip(sections_list, numwords_list):
-        #     messages.append(HumanMessage(content=prompt.format(sections=section,numwords=numword)))
-        #     response = chat(messages)
-        #     st.write(bot_template.replace("{{MSG}}",response.content),unsafe_allow_html=True)
+        for section, numword in zip(sections_list, numwords_list):
+            messages.append(HumanMessage(content=prompt.format(sections=section,numwords=numword)))
+            response = chat(messages)
+            messages.append(AIMessage(content=response.content))
+            st.write(bot_template.replace("{{MSG}}",response.content),unsafe_allow_html=True)
 
 if __name__ == '__main__':
     main()

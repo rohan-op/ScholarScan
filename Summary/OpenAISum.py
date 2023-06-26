@@ -1,36 +1,34 @@
 from base import Base
-
 from langchain.chains.summarize import load_summarize_chain
-from langchain.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
-import os
+from langchain.docstore.document import Document
+from PyPDF2 import PdfReader
+from langchain.chat_models import ChatOpenAI
 
-class OpenAISummary(Base):
+class OAISumChain(Base):
 
-    def get_summary_text(self, pdf_docs):
-        llm = OpenAI(temperature=1)
-        summary = ''
-        prompt_template = """Write a 400 word long summary of the following research paper, also mention the title and author of the research paper: {text}"""
+    def get_summary(self, document, llm, text_splitter,chain_type='stuff'):
+        prompt_template = """Write a concise 600 word long summary of the following research paper, also mention the title and author of the research paper: {text}"""
         PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
-        for i,doc in enumerate(pdf_docs):
-            # Get the file name and extension
-            file_name = doc.name
-            file_extension = os.path.splitext(file_name)[1].lower()
-            # Process only text files (e.g., .txt)
-
-            if file_extension == ".txt":
-                # Load the text file using TextLoader
-                loader = TextLoader(file_name)
-                documents = loader.load()
-
-                # Split the documents using RecursiveCharacterTextSplitter
-                text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-                texts = text_splitter.split_documents(documents)
-
-                #chain = load_summarize_chain(llm, chain_type="map_reduce", verbose=True)
-                chain = load_summarize_chain(llm, chain_type="stuff", prompt=PROMPT)
-                summary += "\n\nRESEARCH PAPER "+ str(i) +":\n\n"
-                summary += chain.run(texts)
+        texts = text_splitter.split_documents(document)
+        chain = load_summarize_chain(llm, chain_type=chain_type, prompt=PROMPT)
+        summary = chain.run(texts)
         return summary
+
+
+    def get_summaries(self, pdf_docs):
+        #llm = OpenAI(temperature=1)
+        llm = ChatOpenAI(temperature=1, model='gpt-3.5-turbo-16k')
+        summaries = []
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+
+        for i,pdf in enumerate(pdf_docs):
+            text = ''
+            pdf_reader = PdfReader(pdf)
+            for pages in pdf_reader.pages:
+                text += pages.extract_text()
+            document = [Document(page_content=text)]
+            summaries.append("\n\nRESEARCH PAPER "+ str(i) +":\n\n"+self.get_summary(document,llm,text_splitter))
+        return summaries

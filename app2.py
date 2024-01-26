@@ -5,6 +5,11 @@ from Summary.OpenAISum import OAISumChain as Summary
 from Sections.Introduction import Introduction
 from Sections.Reference import Reference
 from Sections.LiteratureReview import LiteratureReview
+from Sections.Challenges import Challenges
+from Sections.Proposal import Proposal
+from Sections.FutureWork import FutureWork
+from Sections.Conclusion import Conclusion
+from Sections. Abstract import Abstract
 
 def main():
     load_dotenv()
@@ -12,6 +17,11 @@ def main():
     introduction = Introduction()
     reference = Reference()
     literature = LiteratureReview()
+    challenge = Challenges()
+    proposal = Proposal()
+    future = FutureWork()
+    conclusion = Conclusion()
+    abstract = Abstract()
 
     # streamlit initialize page
     st.set_page_config(page_title="Review Generator", page_icon=":books:")
@@ -45,9 +55,9 @@ def main():
             st.write(bot_template.replace("{{MSG}}",references),unsafe_allow_html=True)
 
         # # Introduction Section
-        # introduction_section = introduction.latex(references=reference_section, summaries=st.session_state.summary, title="A survey on sentiment analysis methods, applications,and challenges")
-        # st.write(bot_template.replace("{{MSG}}","LISTING INTRODUCTIONS"),unsafe_allow_html=True)        
-        # st.write(bot_template.replace("{{MSG}}",introduction_section),unsafe_allow_html=True)
+        introduction_section = introduction.refine(references=reference_section, summaries=st.session_state.summary, title="A survey on sentiment analysis methods, applications,and challenges")
+        st.write(bot_template.replace("{{MSG}}","LISTING INTRODUCTIONS"),unsafe_allow_html=True)        
+        st.write(bot_template.replace("{{MSG}}",introduction_section),unsafe_allow_html=True)
 
         # Literature Review Section
         initial_para,literature_section = literature.refine(references=reference_section, summaries=st.session_state.summary, title="A survey on sentiment analysis methods, applications,and challenges")
@@ -56,6 +66,30 @@ def main():
         for literatureReview in literature_section:
             st.write(bot_template.replace("{{MSG}}",literatureReview),unsafe_allow_html=True)
 
+        # Challenges Section
+        challenges_section = challenge.refine(references=reference_section, literatures=literature_section)
+        st.write(bot_template.replace("{{MSG}}","LISTING CHALLENGES SECTION"),unsafe_allow_html=True)
+        st.write(bot_template.replace("{{MSG}}",challenges_section),unsafe_allow_html=True)
+
+        # Propose Methodology Section
+        methodology_section = proposal.mini(challenges=challenges_section, literature=literature_section)
+        st.write(bot_template.replace("{{MSG}}","LISTING METHODOLOGY SECTION"),unsafe_allow_html=True)
+        st.write(bot_template.replace("{{MSG}}",methodology_section),unsafe_allow_html=True)
+
+        # Future Work Section
+        future_section = future.mini(challenges=challenges_section, proposal=methodology_section)
+        st.write(bot_template.replace("{{MSG}}","LISTING FUTURE WORK SECTION"),unsafe_allow_html=True)
+        st.write(bot_template.replace("{{MSG}}",future_section),unsafe_allow_html=True)
+
+        # Conclusion Section
+        conclusion_section = conclusion.mini(literature=literature_section, future=future_section, challenges=challenges_section, proposal=methodology_section)
+        st.write(bot_template.replace("{{MSG}}","LISTING CONCLUSION SECTION"),unsafe_allow_html=True)
+        st.write(bot_template.replace("{{MSG}}",conclusion_section),unsafe_allow_html=True)
+
+        # Abstract Section
+        abstract_section = abstract.mini(introduction=introduction_section,future=future_section,conclusion=conclusion_section,challenges=challenges_section, proposal=methodology_section)
+        st.write(bot_template.replace("{{MSG}}","LISTING ABSTRACT SECTION"),unsafe_allow_html=True)
+        st.write(bot_template.replace("{{MSG}}",abstract_section),unsafe_allow_html=True)
         
 if __name__ == '__main__':
     main()
